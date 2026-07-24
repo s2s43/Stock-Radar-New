@@ -126,13 +126,13 @@ def main():
             elif datetime.strptime("04:00:00", "%H:%M:%S").time() <= us_time < datetime.strptime("09:30:00", "%H:%M:%S").time():
                 market_status_text = "🟠 فترة ما قبل الافتتاح الأمريكي (Pre-Market)"
             elif datetime.strptime("09:30:00", "%H:%M:%S").time() <= us_time < datetime.strptime("16:00:00", "%H:%M:%S").time():
-                market_status_text = "🟢 السوق مفتوح وجلسة التداول نشطة"
+                market_status_text = "🟢 السوق الأمريكي مفتوح وجلسة التداول نشطة"
             elif datetime.strptime("16:00:00", "%H:%M:%S").time() <= us_time < datetime.strptime("20:00:00", "%H:%M:%S").time():
                 market_status_text = "🔵 فترة ما بعد الإغلاق الرسمي (After-Hours)"
             else:
                 market_status_text = "🔴 السوق مغلق بالكامل"
 
-        # --- 🚨 قسم التنبيهات اللحظية المدمجة في نفس البيانات ---
+        # --- 🚨 قسم التنبيهات اللحظية المدمجة ---
         st.subheader("🔔 مركز الإشعارات والتنبيهات المضاربية اللحظية")
         alert_triggered = False
         
@@ -156,7 +156,7 @@ def main():
             
         st.markdown("---")
 
-        # --- عرض لوحة فحص المؤشرات الرئيسية مع الاسم وحالة السوق ---
+        # --- عرض لوحة فحص المؤشرات الرئيسية ---
         st.subheader("📌 لوحة فحص المؤشرات اللحظية الأساسية")
         st.markdown(f"### 🏢 الشركة: <span style='color:#1E88E5;'>{company_long_name} ({ticker_resolved})</span>", unsafe_allow_html=True)
         
@@ -178,14 +178,15 @@ def main():
             
         st.markdown("---")
         
-        # عرض مناطق الدخول ونصائح التداول
-        col_t1, col_t2 = st.columns(2)
-        with col_t1:
-            st.subheader("🎯 المستهدفات الفنية والمستويات المضاربية اللحظية")
-            st.success(f"🟢 منطقة أفضل سعر للدخول والمضاربة اللحظية: **{levels['entry']:.2f} {currency}**")
-            st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
-            st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
-            st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
-            st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
-            st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
-        with col_t2:
+        # عرض مناطق الدخول والمستهدفات الفنية بشكل طولي آمن
+        st.subheader("🎯 المستهدفات الفنية والمستويات المضاربية اللحظية")
+        st.success(f"🟢 منطقة أفضل سعر للدخول والمضاربة اللحظية: **{levels['entry']:.2f} {currency}**")
+        st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
+        st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
+        st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
+        st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
+        st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
+        
+        st.markdown("---")
+        st.subheader("💡 نصائح الرادار الفنية الموجهة")
+        if price_change > 1.5:
