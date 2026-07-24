@@ -93,18 +93,18 @@ def main():
         except:
             company_long_name = ticker_resolved
 
-        # --- 🕒 حساب حالة توقيت كل سوق لحظياً بشكل معزول ومستقر 100% ---
+        # --- 🕒 حساب حالة توقيت السوق لحظياً ---
         now_utc = datetime.now(pytz.utc)
-        market_status_text = "🔄 جاري فحص توقيت الجلسة..."
+        market_status_text = "🔄 جاري الفحص..."
         
         if market_choice == "السوق السعودي (تداول) 🇸🇦":
             sa_tz = pytz.timezone('Asia/Riyadh')
             sa_now = now_utc.astimezone(sa_tz)
             sa_time = sa_now.time()
-            sa_day = sa_now.weekday()  # 4=الجمعة، 5=السبت
+            sa_day = sa_now.weekday()
             
             if sa_day == 4 or sa_day == 5:
-                market_status_text = "🔴 السوق مقفل (إجازة أسبوعية - الجمعة والسبت)"
+                market_status_text = "🔴 السوق مقفل (إجازة أسبوعية)"
             elif sa_time < datetime.strptime("09:30:00", "%H:%M:%S").time():
                 market_status_text = "🟡 السوق مغلق (قبل فترة ما قبل الافتتاح)"
             elif datetime.strptime("09:30:00", "%H:%M:%S").time() <= sa_time < datetime.strptime("10:00:00", "%H:%M:%S").time():
@@ -112,25 +112,25 @@ def main():
             elif datetime.strptime("10:00:00", "%H:%M:%S").time() <= sa_time < datetime.strptime("15:00:00", "%H:%M:%S").time():
                 market_status_text = "🟢 السوق مفتوح وجاري التداول اللحظي"
             else:
-                market_status_text = "🔴 السوق مغلق (بعد إغلاق الفترة الرسمية)"
+                market_status_text = "🔴 السوق مغلق (بعد الإغلاق)"
         else:
             us_tz = pytz.timezone('US/Eastern')
             us_now = now_utc.astimezone(us_tz)
             us_time = us_now.time()
-            us_day = us_now.weekday()  # 5=السبت، 6=الأحد
+            us_day = us_now.weekday()
             
             if us_day == 5 or us_day == 6:
-                market_status_text = "🔴 السوق مقفل (إجازة أسبوعية - السبت والأحد)"
+                market_status_text = "🔴 السوق مقفل (إجازة أسبوعية)"
             elif us_time < datetime.strptime("04:00:00", "%H:%M:%S").time():
                 market_status_text = "🟡 السوق مغلق (قبل الجلسات الممتدة)"
             elif datetime.strptime("04:00:00", "%H:%M:%S").time() <= us_time < datetime.strptime("09:30:00", "%H:%M:%S").time():
                 market_status_text = "🟠 فترة ما قبل الافتتاح الأمريكي (Pre-Market)"
             elif datetime.strptime("09:30:00", "%H:%M:%S").time() <= us_time < datetime.strptime("16:00:00", "%H:%M:%S").time():
-                market_status_text = "🟢 السوق الأمريكي مفتوح وجلسة التداول نشطة"
+                market_status_text = "🟢 السوق مفتوح وجلسة التداول نشطة"
             elif datetime.strptime("16:00:00", "%H:%M:%S").time() <= us_time < datetime.strptime("20:00:00", "%H:%M:%S").time():
                 market_status_text = "🔵 فترة ما بعد الإغلاق الرسمي (After-Hours)"
             else:
-                market_status_text = "🔴 السوق مغلق بالكامل حالياً"
+                market_status_text = "🔴 السوق مغلق بالكامل"
 
         # --- 🚨 قسم التنبيهات اللحظية المدمجة في نفس البيانات ---
         st.subheader("🔔 مركز الإشعارات والتنبيهات المضاربية اللحظية")
@@ -187,3 +187,5 @@ def main():
             st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
             st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
             st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
+            st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
+        with col_t2:
