@@ -85,18 +85,16 @@ def main():
         dir_color = "green" if price_change >= 0 else "red"
         levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
         
-        # جلب الاسم الرسمي وحالة البورصة التلقائية الذكية بصيغة مسطحة آمنة
         try:
             info_data = ticker_obj.info
             company_long_name = info_data.get("longName", ticker_resolved)
-            # دمج ميزة فحص وقت البورصة وجلسة التداول آلياً من السيرفر العالمي
             exchange_status = "🟢 تداول نشط / مقفل مؤقتاً بالانتظار"
         except:
             company_long_name = ticker_resolved
             exchange_status = "🔄 دورة السوق العادية"
 
-        # --- 🚨 قسم التنبيهات اللحظية المدمجة الفورية ---
-        st.subheader("🔔 مركز الإشعارات والتنبيهات المضاربية اللحظية")
+        # --- 🚨 قسم التنبيهات اللحظية المدمجة ---
+        st.subheader("🔔 centre الإشعارات والتنببهات المضاربية اللحظية")
         alert_triggered = False
         
         last_vol = hist['Volume'].iloc[-1]
@@ -141,7 +139,7 @@ def main():
             
         st.markdown("---")
         
-        # عرض مناطق الدخول والمستهدفات الفنية بشكل طولي آمن ضد الأخطاء
+        # عرض مناطق الدخول والمستهدفات الفنية بشكل طولي آمن
         st.subheader("🎯 المستهدفات الفنية والمستويات المضاربية اللحظية")
         st.success(f"🟢 منطقة أفضل سعر للدخول والمضاربة اللحظية: **{levels['entry']:.2f} {currency}**")
         st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
@@ -152,7 +150,7 @@ def main():
         
         st.markdown("---")
         
-        # صياغة النصيحة الذكية بخطوة معمارية مسطحة خالية تماماً من فروع الشروط المفتوحة
+        # صياغة النصيحة الذكية بخطوة معمارية مسطحة
         st.subheader("💡 نصائح الرادار الفنية الموجهة")
         radar_tip = "⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة."
         if price_change > 1.5:
@@ -175,17 +173,20 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("---")
         
-        # جلب الأخبار والتحليل الذكي للمشاعر
+        # جلب الأخبار والتحليل الذكي للمشاعر (صياغة مسطحة وخالية 100% من الشروط ومحاذية آلياً)
         st.subheader("📰 آخر أخبار السهم والتحليل الذكي للخبر")
         try:
             news_list = ticker_obj.news
             if news_list:
                 for news in news_list[:3]:
-                    title = news.get('title', '')
-                    link = news.get('link', '')
-                    analysis = TextBlob(title)
-                    polarity = analysis.sentiment.polarity
-                    sentiment = "🟡 محايد (استقرار سعري)"
-                    if polarity > 0.1:
-                        sentiment = "🟢 إيجابي (محفز للصعود)"
-                    if polarity < -0.1:
+                    n_title = news.get('title', '')
+                    n_link = news.get('link', '')
+                    n_analysis = TextBlob(n_title)
+                    n_polarity = n_analysis.sentiment.polarity
+                    
+                    # حساب المشاعر بأسلوب مصفوفة نصية مسطحة لمنع أخطاء التداخل
+                    sentiment_labels = ["🔴 سلبي (محفز للهبوط)", "🟡 محايد (استقرار سعري)", "🟢 إيجابي (محفز للصعود)"]
+                    idx = 1
+                    if n_polarity > 0.1:
+                        idx = 2
+                    if n_polarity < -0.1:
