@@ -93,6 +93,46 @@ def main():
         except:
             company_long_name = ticker_resolved
 
+        # --- 🕒 حساب حالة توقيت كل سوق لحظياً بشكل معزول ومستقر 100% ---
+        now_utc = datetime.now(pytz.utc)
+        market_status_text = "🔄 جاري فحص توقيت الجلسة..."
+        
+        if market_choice == "السوق السعودي (تداول) 🇸🇦":
+            sa_tz = pytz.timezone('Asia/Riyadh')
+            sa_now = now_utc.astimezone(sa_tz)
+            sa_time = sa_now.time()
+            sa_day = sa_now.weekday()  # 4=الجمعة، 5=السبت بالإجازة الأسبوعية للبورصة
+            
+            if sa_day == 4 or sa_day == 5:
+                market_status_text = "🔴 السوق مقفل (إجازة أسبوعية - الجمعة والسبت)"
+            elif sa_time < datetime.strptime("09:30:00", "%H:%M:%S").time():
+                market_status_text = "🟡 السوق مغلق (قبل فترة ما قبل الافتتاح)"
+            elif datetime.strptime("09:30:00", "%H:%M:%S").time() <= sa_time < datetime.strptime("10:00:00", "%H:%M:%S").time():
+                market_status_text = "🟠 فترة ما قبل الافتتاح (Pre-Market)"
+            elif datetime.strptime("10:00:00", "%H:%M:%S").time() <= sa_time < datetime.strptime("15:00:00", "%H:%M:%S").time():
+                market_status_text = "🟢 السوق مفتوح وجاري التداول اللحظي"
+            else:
+                market_status_text = "🔴 السوق مغلق (بعد إغلاق الفترة الرسمية)"
+        else:
+            # حساب توقيت البورصة الأمريكية (توقيت نيويورك الشرقي)
+            us_tz = pytz.timezone('US/Eastern')
+            us_now = now_utc.astimezone(us_tz)
+            us_time = us_now.time()
+            us_day = us_now.weekday()  # 5=السبت، 6=الأحد بالإجازة الأمريكية
+            
+            if us_day == 5 or us_day == 6:
+                market_status_text = "🔴 السوق مقفل (إجازة أسبوعية - السبت والأحد)"
+            elif us_time < datetime.strptime("04:00:00", "%H:%M:%S").time():
+                market_status_text = "🟡 السوق مغلق (قبل الجلسات الممتدة)"
+            elif datetime.strptime("04:00:00", "%H:%M:%S").time() <= us_time < datetime.strptime("09:30:00", "%H:%M:%S").time():
+                market_status_text = "🟠 فترة ما قبل الافتتاح الأمريكي (Pre-Market)"
+            elif datetime.strptime("09:30:00", "%H:%M:%S").time() <= us_time < datetime.strptime("16:00:00", "%H:%M:%S").time():
+                market_status_text = "🟢 السوق الأمريكي مفتوح وجلسة التداول نشطة"
+            elif datetime.strptime("16:00:00", "%H:%M:%S").time() <= us_time < datetime.strptime("20:00:00", "%H:%M:%S").time():
+                market_status_text = "🔵 فترة ما بعد الإغلاق الرسمي (After-Hours)"
+            else:
+                market_status_text = "🔴 السوق مغلق بالكامل حالياً"
+
         # --- 🚨 قسم التنبيهات اللحظية المدمجة في نفس البيانات ---
         st.subheader("🔔 مركز الإشعارات والتنبيهات المضاربية اللحظية")
         alert_triggered = False
@@ -102,14 +142,14 @@ def main():
         avg_vol = hist['Volume'].mean()
         
         if last_vol > (avg_vol * 1.5):
-            st.error(f"⚡ **تنبيه سيولة غير طبيعية:** تم رصد تدفق سيولة ضخمة مفاجئة على السهم تفوق المعدل اليومي بـ 150%! حجم سيولة الشمعة الحالية: {liquidity_value:,.0f} {currency}")
+            st.error(f"⚡ **تنبيه سيولة غير طبيعية:** تم رصد تدفق سيولة ضخمة مفاجئة تفوق المعدل اليومي بـ 150%! السيولة الحالية: {liquidity_value:,.0f} {currency}")
             alert_triggered = True
             
         if abs(current_price - levels['entry']) / levels['entry'] <= 0.01:
-            st.success(f"🎯 **تنبيه قناص الرادار:** السهم يتداول الآن مباشرة عند منطقة الدخول والمضاربة اللحظية المثالية ({levels['entry']:.2f} {currency})")
+            st.success(f"🎯 **تنبيه قناص الرادار:** السهم يقف مباشرة عند منطقة الدخول والمضاربة اللحظية المثالية ({levels['entry']:.2f} {currency})")
             alert_triggered = True
         elif current_price <= levels['sl']:
-            st.warning(f"🚨 **تنبيه كسر فني:** السهم يتداول حالياً تحت مستوى وقف الخسارة المحدد ({levels['sl']:.2f} {currency}). ينصح بالحذر.")
+            st.warning(f"🚨 **تنبيه كسر فني:** السهم يتداول حالياً تحت مستوى وقف الخسارة المحدد ({levels['sl']:.2f} {currency})")
             alert_triggered = True
             
         if not alert_triggered:
@@ -117,16 +157,18 @@ def main():
             
         st.markdown("---")
 
-        # --- عرض لوحة فحص المؤشرات الرئيسية مع الاسم الرسمي ---
+        # --- عرض لوحة فحص المؤشرات الرئيسية مع الاسم وحالة السوق ---
         st.subheader("📌 لوحة فحص المؤشرات اللحظية الأساسية")
-        st.markdown(f"### 🏢 السهم النشط حالياً: <span style='color:#1E88E5;'>{company_long_name} ({ticker_resolved})</span>", unsafe_allow_html=True)
+        st.markdown(f"### 🏢 الشركة: <span style='color:#1E88E5;'>{company_long_name} ({ticker_resolved})</span>", unsafe_allow_html=True)
         
-        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         with col_m1:
             st.metric(label=f"السعر الحالي ({currency})", value=f"{current_price:.2f}", delta=f"{price_change:.2f}%")
         with col_m2:
-            st.markdown(f"**الاتجاه الفني الحالي:**\n\n<span style='color:{dir_color}; font-size:18px; font-weight:bold;'>{stock_direction}</span>", unsafe_allow_html=True)
+            st.markdown(f"**حالة توقيت البورصة:**\n\n`{market_status_text}`")
         with col_m3:
+            st.markdown(f"**الاتجاه الفني الحالي:**\n\n<span style='color:{dir_color}; font-size:18px; font-weight:bold;'>{stock_direction}</span>", unsafe_allow_html=True)
+        with col_m4:
             st.metric("حجم سيولة الشمعة الأخيرة", f"{liquidity_value:,.0f} {currency}")
         
         try:
@@ -145,46 +187,3 @@ def main():
             st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
             st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
             st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
-            st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
-            st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
-        with col_t2:
-            st.subheader("💡 نصائح الرادار الفنية الموجهة")
-            if price_change > 1.5:
-                st.success("🔥 السهم تحت تأثير زخم شرائي قوي وسيولة متدفقة للإيجابية. الدخول الآمن يكون عبر اقتناص التهدئة اللحظية قرب منطقة الدخول المحددة للهدف الأول.")
-            elif price_change < -1.5:
-                st.error("🚨 السهم يتعرض لضغط بيعي هابط وتصحيح حركي. ينصح بالالتزام التام بنقاط وقف الخسارة لعدم الوقوع في تعليقة سعرية حادة.")
-            else:
-                st.warning("⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة.")
-        st.markdown("---")
-        
-        # بناء شارت الشموع اليابانية التفاعلي
-        st.subheader(f"📈 شارت التحليل الفني التفاعلي اللحظي لفريم ({timeframe})")
-        fig = go.Figure(data=[go.Candlestick(
-            x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name="الشموع اليابانية"
-        )])
-        fig.add_hline(y=levels['entry'], line_dash="dash", line_color="green", annotation_text="منطقة الدخول")
-        fig.add_hline(y=levels['t1'], line_dash="dash", line_color="blue", annotation_text="الهدف 1")
-        fig.add_hline(y=levels['sl'], line_dash="dash", line_color="red", annotation_text="وقف الخسارة")
-        fig.update_layout(template="plotly_dark", xaxis_rangeslider_visible=False, height=520)
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown("---")
-        
-        # جلب الأخبار والتحليل الذكي للمشاعر
-        st.subheader("📰 آخر أخبار السهم والتحليل الذكي للخبر")
-        try:
-            news_list = ticker_obj.news
-            if news_list:
-                for news in news_list[:3]:
-                    title = news.get('title', '')
-                    link = news.get('link', '')
-                    analysis = TextBlob(title)
-                    polarity = analysis.sentiment.polarity
-                    if polarity > 0.1:
-                        sentiment = "🟢 إيجابي (محفز للصعود)"
-                    elif polarity < -0.1:
-                        sentiment = "🔴 سلبي (محفز للهبوط)"
-                    else:
-                        sentiment = "🟡 محايد (استقرار سعري)"
-                    st.markdown(f"🔹 **[{title}]({link})**")
-                    st.info(f"التحليل الذكي لمشاعر فحوى الخبر: {sentiment}")
-            else:
