@@ -2,171 +2,197 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from textblob import TextBlob
-import datetime
+import plotly.graph_objects as go
+from datetime import datetime
+import pytz
 
 # ==========================================
-# 1. دالة جلب البيانات والتحقق الذكي من السوق
+# 1. قاموس البحث الذكي (تحويل الأسماء المباشرة إلى رموز بورصة)
 # ==========================================
-def get_stock_data(ticker_symbol, market_type):
-    """جلب بيانات السهم الحالية والتاريخية بناءً على نوع السوق"""
+COMPANY_DICTIONARY = {
+    # السوق السعودي 🇸🇦
+    "الراجحي": "1120.SR", "مصرف الراجحي": "1120.SR",
+    "أرامكو": "2222.SR", "أرامكو السعودية": "2222.SR",
+    "الأهلي": "1180.SR", "البنك الأهلي": "1180.SR",
+    "سابك": "2010.SR", "الاتصالات السعودية": "7010.SR", "stc": "7010.SR",
+    # السوق الأمريكي 🇺🇸
+    "تسلا": "TSLA", "tesla": "TSLA",
+    "أبل": "AAPL", "apple": "AAPL",
+    "مايكروسوفت": "MSFT", "microsoft": "MSFT",
+    "إنفيديا": "NVDA", "nvidia": "NVDA",
+    "جوجل": "GOOGL", "google": "GOOGL"
+}
+
+def resolve_ticker(user_input, market_type):
+    clean_input = user_input.strip().lower()
+    if clean_input in COMPANY_DICTIONARY:
+        return COMPANY_DICTIONARY[clean_input]
     if market_type == "السوق السعودي (تداول) 🇸🇦":
-        ticker_clean = ticker_symbol.strip()
-        if not ticker_clean.endswith(".SR"):
-            ticker_clean = f"{ticker_clean}.SR"
-    else:
-        ticker_clean = ticker_symbol.upper().strip()
-        
-    try:
-        ticker = yf.Ticker(ticker_clean)
-        hist = ticker.history(period="5d")  # جلب بيانات كافية لحساب التغيرات
-        if hist.empty:
-            return None, None, "⚠️ لم يتم العثور على بيانات لهذا الرمز. تأكد من صحة المدخلات."
-        return hist, ticker, None
-    except Exception as e:
-        return None, None, f"❌ حدث خطأ أثناء الاتصال بمزود البيانات: {str(e)}"
+        if not clean_input.endswith(".sr") and clean_input.isdigit():
+            return f"{clean_input}.SR"
+    return user_input.upper().strip()
 
 # ==========================================
-# 2. دالة جلب وتحليل الأخبار الذكية (Sentiment)
+# 2. دالة فحص وتحديد حالة وقت السوق اللحظية
 # ==========================================
-def fetch_and_analyze_news(ticker_obj):
-    """جلب الأخبار الحية وتحليل المشاعر (إيجابي/سلبي/محايد)"""
-    try:
-        news_list = ticker_obj.news
-        if not news_list:
-            return None
-            
-        analyzed_news = []
-        for item in news_list[:5]:  # تحليل آخر 5 أخبار فقط للسرعة
-            title = item.get('title', '')
-            publisher = item.get('publisher', '')
-            link = item.get('link', '')
-            
-            # تحليل المشاعر باستخدام TextBlob (يدعم الإنجليزية بشكل أساسي)
-            analysis = TextBlob(title)
-            polarity = analysis.sentiment.polarity
-            
-            if polarity > 0.1:
-                sentiment = "🟢 إيجابي (صعود محتمل)"
-            elif polarity < -0.1:
-                sentiment = "🔴 سلبي (هبوط محتمل)"
-            else:
-                sentiment = "🟡 محايد (استقرار)"
-                
-            analyzed_news.append({
-                "title": title,
-                "publisher": publisher,
-                "link": link,
-                "sentiment": sentiment
-            })
-        return analyzed_news
-    except:
-        return None
-
-# ==========================================
-# 3. دالة فحص التنبيهات (Price & Volatility)
-# ==========================================
-def check_alerts(hist_data, target_price, volatility_threshold):
-    """فحص تنبيهات السعر وحجم التقلبات اللحظية"""
-    if hist_data is None or len(hist_data) < 2:
-        return ["⚠️ بيانات السعر غير كافية لإجراء الفحص اللحظي."]
-        
-    current_price = hist_data['Close'].iloc[-1]
-    prev_price = hist_data['Close'].iloc[-2]
+def get_market_status(market_type):
+    """تحديد ما إذا كان السوق مفتوحاً، مغلقاً، قبل الافتتاح أو بعده بناءً على التوقيت المحلي"""
+    now_utc = datetime.now(pytz.utc)
     
-    # حساب نسبة التغير اللحظي
-    price_change = (current_price - prev_price) / prev_price
-    alerts = []
-    
-    # 1. تنبيه السعر المستهدف
-    if current_price >= target_price:
-        alerts.append(f"🎯 **تنبيه السعر المستهدف:** تخطى السهم السعر المحدد ({target_price:.2f})، السعر الحالي الآن هو **{current_price:.2f}**.")
+    if market_type == "السوق السعودي (تداول) 🇸🇦":
+        tz_sa = pytz.timezone('Asia/Riyadh')
+        now_local = now_utc.astimezone(tz_sa)
+        current_time = now_local.time()
+        weekday = now_local.weekday()  # 0=الأحد, 4=الخميس, 5=الجمعة, 6=السبت في سيرفرات التوقيت
         
-    # 2. تنبيه التقلب الحاد (Volatility Alert)
-    if abs(price_change) >= volatility_threshold:
-        direction = "ارتفاع 📈" if price_change > 0 else "انخفاض 📉"
-        alerts.append(f"⚡ **تنبيه تقلبات حادة:** شهد السهم {direction} مفاجئ بنسبة **{price_change*100:.2f}%** مقارنة بالإغلاق السابق.")
+        # الجمعة والسبت إجازة (يتحول الرقم في حساب الأيام بالسيرفر العالمي: 4=الجمعة, 5=السبت)
+        if weekday in: 
+            return "🔴 السوق مقفل (إجازة أسبوعية)"
+            
+        start_pre = datetime.strptime("09:30:00", "%H:%M:%S").time()
+        start_market = datetime.strptime("10:00:00", "%H:%M:%S").time()
+        end_market = datetime.strptime("15:00:00", "%H:%M:%S").time()
         
-    return alerts
+        if current_time < start_pre:
+            return "🟡 السوق مغلق (قبل فترة ما قبل الافتتاح)"
+        elif start_pre <= current_time < start_market:
+            return "🟠 فترة ما قبل الافتتاح (Pre-Market)"
+        elif start_market <= current_time < end_market:
+            return "🟢 السوق مفتوح وجاري التداول اللحظي"
+        else:
+            return "🔴 السوق مغلق (بعد إغلاق الفترة الرسمية)"
+            
+    else:  # السوق الأمريكي
+        tz_us = pytz.timezone('US/Eastern')
+        now_local = now_utc.astimezone(tz_us)
+        current_time = now_local.time()
+        weekday = now_local.weekday()  # 5=السبت, 6=الأحد
+        
+        if weekday in:
+            return "🔴 السوق مقفل (إجازة أسبوعية)"
+            
+        start_pre = datetime.strptime("04:00:00", "%H:%M:%S").time()
+        start_market = datetime.strptime("09:30:00", "%H:%M:%S").time()
+        end_market = datetime.strptime("16:00:00", "%H:%M:%S").time()
+        end_post = datetime.strptime("20:00:00", "%H:%M:%S").time()
+        
+        if current_time < start_pre:
+            return "🟡 السوق مغلق (قبل فترة ما قبل الافتتاح)"
+        elif start_pre <= current_time < start_market:
+            return "🟠 فترة ما قبل الافتتاح الأمريكي (Pre-Market)"
+        elif start_market <= current_time < end_market:
+            return "🟢 السوق الأمريكي مفتوح حالياً"
+        elif end_market <= current_time < end_post:
+            return "🔵 فترة ما بعد الإغلاق الرسمي (After-Hours)"
+        else:
+            return "🔴 السوق مغلق بالكامل"
 
 # ==========================================
-# 4. بناء واجهة مستخدم Streamlit الرئيسية
+# 3. مصفوفة حساب المستهدفات الفنية المضاربية اللحظية
+# ==========================================
+def calculate_advanced_targets(current_price, high, low):
+    """توليد المستويات الفنية والمضاربية الدقيقة حركياً بناء على مستويات الدعم والمقاومة اللحظية"""
+    range_movement = (high - low) if (high - low) > 0 else (current_price * 0.02)
+    
+    optimal_entry = current_price - (range_movement * 0.2)
+    target_1 = current_price + (range_movement * 0.4)
+    target_2 = current_price + (range_movement * 1.0)
+    target_3 = current_price + (range_movement * 1.8)
+    stop_loss = current_price - (range_movement * 0.6)
+    strict_stop = current_price - (range_movement * 1.2)
+    
+    return {
+        "entry": optimal_entry, "t1": target_1, "t2": target_2, "t3": target_3,
+        "sl": stop_loss, "strict_sl": strict_stop
+    }
+
+# ==========================================
+# 4. بناء واجهة مستخدم Streamlit الرئيسية المحدثة
 # ==========================================
 def main():
-    st.set_page_config(page_title="Stock Radar - رادار الأسهم الذكي", layout="wide")
-    
-    st.title("📊 رادار الأسهم الذكي (Stock Radar)")
-    st.markdown("منصة ذكية لمراقبة الأسعار، كشف التقلبات الحادة، وتحليل مشاعر الأخبار الحية.")
+    st.set_page_config(page_title="Stock Radar Pro - رادار الأسهم الاحترافي", layout="wide")
+    st.title("📊 رادار الأسهم الاحترافي الذكي (Stock Radar Pro)")
+    st.markdown("منصة ذكية لمراقبة الاتجاه الفني، كشف السيولة، وحساب المستهدفات اللحظية لجميع الفريمات.")
     
     # --- شريط التحكم الجانبي ---
     st.sidebar.header("⚙️ إعدادات الرادار والمراقبة")
+    market_choice = st.sidebar.selectbox("اختر السوق المستهدف:", ["السوق الأمريكي 🇺🇸", "السوق السعودي (تداول) 🇸🇦"])
     
-    market_choice = st.sidebar.selectbox(
-        "اختر السوق المستهدف:", 
-        ["السوق الأمريكي 🇺🇸", "السوق السعودي (تداول) 🇸🇦"]
-    )
+    user_search = st.sidebar.text_input("أدخل اسم الشركة (مثال: تسلا، أرامكو) أو رمزها المباشر:", value="AAPL")
+    timeframe = st.sidebar.selectbox("اختر الفريم الزمني للتحليل (Timeframe):", ["5m", "15m", "1h", "1d", "1wk"])
     
-    if market_choice == "السوق الأمريكي 🇺🇸":
-        ticker_input = st.sidebar.text_input("أدخل رمز السهم الأمريكي (مثال: AAPL, TSLA):", value="AAPL").upper().strip()
-        currency = "$"
-    else:
-        ticker_input = st.sidebar.text_input("أدخل رقم السهم السعودي (مثال: 1120, 2222):", value="1120").strip()
-        currency = "ر.س"
-        
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔔 إعدادات التنبيهات اللحظية")
-    
-    # جلب السعر الافتراضي لتهيئة الخانات بشكل صحيح عند التغيير
-    target_price = st.sidebar.number_input(f"السعر المستهدف للتنبيه ({currency}):", min_value=0.0, value=150.0)
-    volatility_limit = st.sidebar.slider("حد التقلب المفاجئ المسموح به (%):", min_value=1.0, max_value=10.0, value=3.0) / 100
+    trigger_radar = st.sidebar.button("تشغيل رادار الفحص اللحظي والمضاربي", use_container_width=True)
 
-    trigger_radar = st.sidebar.button("تشغيل رادار الفحص اللحظي", use_container_width=True)
-
-    # --- تشغيل ومعالجة البيانات عند الضغط على الزر ---
     if trigger_radar:
-        with st.spinner("جاري الاتصال بقواعد البيانات وفحص السهم..."):
-            hist, ticker_obj, error = get_stock_data(ticker_input, market_choice)
-            
-            if error:
-                st.error(error)
-                return
+        ticker_resolved = resolve_ticker(user_search, market_choice)
+        currency = "ر.س" if market_choice == "السوق السعودي (تداول) 🇸🇦" else "$"
+        
+        with st.spinner(f"جاري معالجة البيانات الفنية للرمز {ticker_resolved}..."):
+            try:
+                ticker_obj = yf.Ticker(ticker_resolved)
                 
-            current_price = hist['Close'].iloc[-1]
-            
-            # عرض بطاقة السعر الحالية
-            st.metric(label=f"السعر الحالي للسهم ({ticker_input})", value=f"{current_price:.2f} {currency}")
-            
-            # إنشاء أعمدة لعرض النتائج بشكل منظم ومريح للعين
-            col1, col2 = st.columns(2)
-            
-            # العمود الأول: نظام التنبيهات واختراق الأسعار
-            with col1:
-                st.subheader("🔔 لوحة التنبيهات الفورية (Alerts)")
-                active_alerts = check_alerts(hist, target_price, volatility_limit)
+                # حل مشكلة الفريمات والإغلاق بجلب بيانات كافية تضمن تفادي قيم nan
+                period_map = {"5m": "5d", "15m": "5d", "1h": "1mo", "1d": "6mo", "1wk": "2y"}
+                hist = ticker_obj.history(interval=timeframe, period=period_map[timeframe])
                 
-                if active_alerts:
-                    for alert in active_alerts:
-                        st.warning(alert)
-                else:
-                    st.success("✅ حالة السعر مستقرة وتحت حد التقلبات المعين حالياً.")
-            
-            # العمود الثاني: الأخبار وتحليل المشاعر الذكي
-            with col2:
-                st.subheader("📰 آخر أخبار السهم والتحليل الذكي للخبر")
-                news_data = fetch_and_analyze_news(ticker_obj)
+                if hist.empty:
+                    st.error("⚠️ لم يتم العثور على بيانات نشطة لهذا الرمز. يرجى التأكد من كتابة الاسم أو الرمز بشكل صحيح.")
+                    return
                 
-                if news_data:
-                    for news in news_data:
-                        st.markdown(f"🔹 **[{news['title']}]({news['link']})**")
-                        st.caption(f"الناشر: {news['publisher']}")
-                        st.info(f"تحليل الذكاء الاصطناعي للخبر: {news['sentiment']}")
-                        st.markdown("---")
-                else:
-                    st.info("ℹ️ لا توجد أخبار حديثة متوفرة لهذا الرمز حالياً عبر المزود.")
-
-if __name__ == "__main__":
-    main() 
-
-
-
-
-
+                # تنظيف البيانات وتفادي القيم الفارغة (حذف أي قيم nan والاعتماد على آخر سعر إغلاق حقيقي متوفر)
+                hist = hist.dropna(subset=['Close'])
+                if hist.empty:
+                    st.error("⚠️ البيانات المتوفرة فارغة حالياً.")
+                    return
+                    
+                current_price = hist['Close'].iloc[-1]
+                prev_price = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+                price_change = ((current_price - prev_price) / prev_price) * 100
+                
+                # تحديد اتجاه السهم الفني
+                stock_direction = "📈 صاعد مستقر" if price_change >= 0 else "📉 هابط تصحيحي"
+                dir_color = "green" if price_change >= 0 else "red"
+                
+                # جلب حالة توقيت السوق الحالية
+                market_status_text = get_market_status(market_choice)
+                
+                # حساب المستهدفات والمستويات الفنية المضاربية
+                levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
+                
+                # === العرض المرئي للبيانات والحجم ===
+                st.subheader("📌 لوحة فحص المؤشرات اللحظية الأساسية")
+                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+                
+                with col_m1:
+                    st.metric(label=f"السعر الحالي ({currency})", value=f"{current_price:.2f}", delta=f"{price_change:.2f}%")
+                with col_m2:
+                    st.markdown(f"**حالة توقيت السوق الحالية:**\n\n`{market_status_text}`")
+                with col_m3:
+                    st.markdown(f"**الاتجاه الفني الحالي:**\n\n<span style='color:{dir_color}; font-size:18px; font-weight:bold;'>{stock_direction}</span>", unsafe_allow_html=True)
+                with col_m4:
+                    # حساب حجم السيولة المادية وحجم الأسهم الحرة المتداولة
+                    last_vol = hist['Volume'].iloc[-1]
+                    liquidity_value = last_vol * current_price
+                    st.metric("حجم السيولة المتداولة (آخر شمعة)", f"{liquidity_value:,.0f} {currency}")
+                
+                # إضافة سطر الأسهم الحرة المتاحة
+                info_data = ticker_obj.info
+                float_shares = info_data.get("floatShares", info_data.get("sharesOutstanding", 0)) [1.3.3، 1.3.4]
+                st.caption(f"الأسهم المتاحة للتداول (Float Shares): {float_shares:,.0f}" if float_shares else "الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
+                
+                st.markdown("---")
+                
+                # === عرض مناطق الدخول والمستهدفات الفنية المضاربية ===
+                col_t1, col_t2 = st.columns(2)
+                
+                with col_t1:
+                    st.subheader("🎯 المستهدفات الفنية والمستويات المضاربية اللحظية")
+                    st.success(f"🟢 منطقة أفضل سعر للدخول والمضاربة اللحظية: **{levels['entry']:.2f} {currency}**")
+                    st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
+                    st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
+                    st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
+                    st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
+                    st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
+                
+                with col_t2:
+                    st.subheader("💡 نصائح الرادار الفنية الموجهة")
