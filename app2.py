@@ -34,14 +34,13 @@ def resolve_ticker(user_input, market_type):
 # 2. دالة فحص وتحديد حالة وقت السوق اللحظية
 # ==========================================
 def get_market_status(market_type):
-    """تحديد ما إذا كان السوق مفتوحاً، مغلقاً، قبل الافتتاح أو بعده بناءً على التوقيت المحلي"""
     now_utc = datetime.now(pytz.utc)
     
     if market_type == "السوق السعودي (تداول) 🇸🇦":
         tz_sa = pytz.timezone('Asia/Riyadh')
         now_local = now_utc.astimezone(tz_sa)
         current_time = now_local.time()
-        weekday = now_local.weekday()  # 0=الإثنين, 4=الجمعة, 5=السبت, 6=الأحد
+        weekday = now_local.weekday()
         
         if weekday == 4 or weekday == 5: 
             return "🔴 السوق مقفل (إجازة أسبوعية)"
@@ -88,16 +87,13 @@ def get_market_status(market_type):
 def calculate_advanced_targets(current_price, high, low):
     range_movement = (high - low) if (high - low) > 0 else (current_price * 0.02)
     
-    optimal_entry = current_price - (range_movement * 0.2)
-    target_1 = current_price + (range_movement * 0.4)
-    target_2 = current_price + (range_movement * 1.0)
-    target_3 = current_price + (range_movement * 1.8)
-    stop_loss = current_price - (range_movement * 0.6)
-    strict_sl = current_price - (range_movement * 1.2)
-    
     return {
-        "entry": optimal_entry, "t1": target_1, "t2": target_2, "t3": target_3,
-        "sl": stop_loss, "strict_sl": strict_sl
+        "entry": current_price - (range_movement * 0.2),
+        "t1": current_price + (range_movement * 0.4),
+        "t2": current_price + (range_movement * 1.0),
+        "t3": current_price + (range_movement * 1.8),
+        "sl": current_price - (range_movement * 0.6),
+        "strict_sl": current_price - (range_movement * 1.2)
     }
 
 # ==========================================
@@ -108,13 +104,10 @@ def main():
     st.title("📊 رادار الأسهم الاحترافي الذكي (Stock Radar Pro)")
     st.markdown("منصة ذكية لمراقبة الاتجاه الفني، كشف السيولة، وحساب المستهدفات اللحظية لجميع الفريمات.")
     
-    # --- شريط التحكم الجانبي ---
     st.sidebar.header("⚙️ إعدادات الرادار والمراقبة")
     market_choice = st.sidebar.selectbox("اختر السوق المستهدف:", ["السوق الأمريكي 🇺🇸", "السوق السعودي (تداول) 🇸🇦"])
-    
     user_search = st.sidebar.text_input("أدخل اسم الشركة (مثال: تسلا، أرامكو) أو رمزها المباشر:", value="AAPL")
     timeframe = st.sidebar.selectbox("اختر الفريم الزمني للتحليل (Timeframe):", ["5m", "15m", "1h", "1d", "1wk"])
-    
     trigger_radar = st.sidebar.button("تشغيل رادار الفحص اللحظي والمضاربي", use_container_width=True)
 
     if trigger_radar:
@@ -132,24 +125,17 @@ def main():
                     return
                 
                 hist = hist.dropna(subset=['Close'])
-                if hist.empty:
-                    st.error("⚠️ البيانات المتوفرة فارغة حالياً.")
-                    return
-                    
                 current_price = hist['Close'].iloc[-1]
                 prev_price = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
                 price_change = ((current_price - prev_price) / prev_price) * 100
                 
                 stock_direction = "📈 صاعد مستقر" if price_change >= 0 else "📉 هابط تصحيحي"
                 dir_color = "green" if price_change >= 0 else "red"
-                
                 market_status_text = get_market_status(market_choice)
                 levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
                 
-                # === العرض المرئي للبيانات والحجم ===
                 st.subheader("📌 لوحة فحص المؤشرات اللحظية الأساسية")
                 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                
                 with col_m1:
                     st.metric(label=f"السعر الحالي ({currency})", value=f"{current_price:.2f}", delta=f"{price_change:.2f}%")
                 with col_m2:
@@ -164,12 +150,9 @@ def main():
                 info_data = ticker_obj.info
                 float_shares = info_data.get("floatShares", info_data.get("sharesOutstanding", 0))
                 st.caption(f"الأسهم المتاحة للتداول (Float Shares): {float_shares:,.0f}" if float_shares else "الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
-                
                 st.markdown("---")
                 
-                # === عرض مناطق الدخول والمستهدفات الفنية المضاربية ===
                 col_t1, col_t2 = st.columns(2)
-                
                 with col_t1:
                     st.subheader("🎯 المستهدفات الفنية والمستويات المضاربية اللحظية")
                     st.success(f"🟢 منطقة أفضل سعر للدخول والمضاربة اللحظية: **{levels['entry']:.2f} {currency}**")
@@ -178,7 +161,6 @@ def main():
                     st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
                     st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
                     st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
-                
                 with col_t2:
                     st.subheader("💡 نصائح الرادار الفنية الموجهة")
                     if price_change > 1.5:
@@ -187,7 +169,16 @@ def main():
                         st.error("🚨 السهم يتعرض لضغط بيعي هابط وتصحيح حركي. ينصح بالالتزام التام بنقاط وقف الخسارة لعدم الوقوع في تعليقة سعرية حادة.")
                     else:
                         st.warning("⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة.")
-                
                 st.markdown("---")
                 
-                # === رسم شارت الشموع اليابانية التفاعلي للمؤشرات الفنية (Plotly Chart) ===
+                st.subheader(f"📈 شارت التحليل الفني التفاعلي اللحظي لفريم ({timeframe})")
+                fig = go.Figure(data=[go.Candlestick(
+                    x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name="الشموع اليابانية"
+                )])
+                fig.add_hline(y=levels['entry'], line_dash="dash", line_color="green", annotation_text="منطقة الدخول")
+                fig.add_hline(y=levels['t1'], line_dash="dash", line_color="blue", annotation_text="الهدف 1")
+                fig.add_hline(y=levels['sl'], line_dash="dash", line_color="red", annotation_text="وقف الخسارة")
+                fig.update_layout(template="plotly_dark", xaxis_rangeslider_visible=False, height=520)
+                st.plotly_chart(fig, use_container_width=True)
+                st.markdown("---")
+                
