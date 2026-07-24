@@ -43,9 +43,8 @@ def get_market_status(market_type):
         tz_sa = pytz.timezone('Asia/Riyadh')
         now_local = now_utc.astimezone(tz_sa)
         current_time = now_local.time()
-        weekday = now_local.weekday()  # 0=الأحد, 4=الخميس, 5=الجمعة, 6=السبت في سيرفرات التوقيت
+        weekday = now_local.weekday()  # 0=الأحد, 4=الخميس, 5=الجمعة, 6=السبت
         
-        # الجمعة والسبت إجازة (يتحول الرقم في حساب الأيام بالسيرفر العالمي: 4=الجمعة, 5=السبت)
         if weekday in: 
             return "🔴 السوق مقفل (إجازة أسبوعية)"
             
@@ -99,11 +98,11 @@ def calculate_advanced_targets(current_price, high, low):
     target_2 = current_price + (range_movement * 1.0)
     target_3 = current_price + (range_movement * 1.8)
     stop_loss = current_price - (range_movement * 0.6)
-    strict_stop = current_price - (range_movement * 1.2)
+    strict_sl = current_price - (range_movement * 1.2)
     
     return {
         "entry": optimal_entry, "t1": target_1, "t2": target_2, "t3": target_3,
-        "sl": stop_loss, "strict_sl": strict_stop
+        "sl": stop_loss, "strict_sl": strict_sl
     }
 
 # ==========================================
@@ -131,7 +130,6 @@ def main():
             try:
                 ticker_obj = yf.Ticker(ticker_resolved)
                 
-                # حل مشكلة الفريمات والإغلاق بجلب بيانات كافية تضمن تفادي قيم nan
                 period_map = {"5m": "5d", "15m": "5d", "1h": "1mo", "1d": "6mo", "1wk": "2y"}
                 hist = ticker_obj.history(interval=timeframe, period=period_map[timeframe])
                 
@@ -139,7 +137,6 @@ def main():
                     st.error("⚠️ لم يتم العثور على بيانات نشطة لهذا الرمز. يرجى التأكد من كتابة الاسم أو الرمز بشكل صحيح.")
                     return
                 
-                # تنظيف البيانات وتفادي القيم الفارغة (حذف أي قيم nan والاعتماد على آخر سعر إغلاق حقيقي متوفر)
                 hist = hist.dropna(subset=['Close'])
                 if hist.empty:
                     st.error("⚠️ البيانات المتوفرة فارغة حالياً.")
@@ -149,14 +146,11 @@ def main():
                 prev_price = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
                 price_change = ((current_price - prev_price) / prev_price) * 100
                 
-                # تحديد اتجاه السهم الفني
                 stock_direction = "📈 صاعد مستقر" if price_change >= 0 else "📉 هابط تصحيحي"
                 dir_color = "green" if price_change >= 0 else "red"
                 
-                # جلب حالة توقيت السوق الحالية
                 market_status_text = get_market_status(market_choice)
                 
-                # حساب المستهدفات والمستويات الفنية المضاربية
                 levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
                 
                 # === العرض المرئي للبيانات والحجم ===
@@ -170,14 +164,12 @@ def main():
                 with col_m3:
                     st.markdown(f"**الاتجاه الفني الحالي:**\n\n<span style='color:{dir_color}; font-size:18px; font-weight:bold;'>{stock_direction}</span>", unsafe_allow_html=True)
                 with col_m4:
-                    # حساب حجم السيولة المادية وحجم الأسهم الحرة المتداولة
                     last_vol = hist['Volume'].iloc[-1]
                     liquidity_value = last_vol * current_price
                     st.metric("حجم السيولة المتداولة (آخر شمعة)", f"{liquidity_value:,.0f} {currency}")
                 
-                # إضافة سطر الأسهم الحرة المتاحة
                 info_data = ticker_obj.info
-                float_shares = info_data.get("floatShares", info_data.get("sharesOutstanding", 0)) [1.3.3، 1.3.4]
+                float_shares = info_data.get("floatShares", info_data.get("sharesOutstanding", 0))
                 st.caption(f"الأسهم المتاحة للتداول (Float Shares): {float_shares:,.0f}" if float_shares else "الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
                 
                 st.markdown("---")
@@ -196,3 +188,9 @@ def main():
                 
                 with col_t2:
                     st.subheader("💡 نصائح الرادار الفنية الموجهة")
+                    if price_change > 1.5:
+                        st.success("🔥 السهم تحت تأثير زخم شرائي قوي وسيولة متدفقة للإيجابية. الدخول الآمن يكون عبر اقتناص التهدئة اللحظية قرب منطقة الدخول المحددة للهدف الأول.")
+                    elif price_change < -1.5:
+                        st.error("🚨 السهم يتعرض لضغط بيعي هابط وتصحيح حركي. ينصح بالالتزام التام بنقاط وقف الخسارة لعدم الوقوع في تعليقة سعرية حادة.")
+                    else:
+                        st.warning("⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة.")
