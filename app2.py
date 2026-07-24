@@ -43,10 +43,10 @@ def get_market_status(market_type):
         tz_sa = pytz.timezone('Asia/Riyadh')
         now_local = now_utc.astimezone(tz_sa)
         current_time = now_local.time()
-        weekday = now_local.weekday()  # 0=الإثنين, 4=الجمعة, 5=السبت, 6=الأحد
+        weekday = now_local.weekday()  # 0=الإثنين، 4=الجمعة، 5=السبت، 6=الأحد
         
-        # الجمعة (4) والسبت (5) إجازة أسبوعية في البورصة السعودية
-        if weekday in: 
+        # فحص الإجازة الأسبوعية للسوق السعودي (الجمعة والسبت)
+        if weekday == 4 or weekday == 5: 
             return "🔴 السوق مقفل (إجازة أسبوعية)"
             
         start_pre = datetime.strptime("09:30:00", "%H:%M:%S").time()
@@ -66,10 +66,10 @@ def get_market_status(market_type):
         tz_us = pytz.timezone('US/Eastern')
         now_local = now_utc.astimezone(tz_us)
         current_time = now_local.time()
-        weekday = now_local.weekday()  # 5=السبت, 6=الأحد
+        weekday = now_local.weekday()  # 5=السبت، 6=الأحد
         
-        # السبت (5) والأحد (6) إجازة أسبوعية في الأسواق الأمريكية
-        if weekday in:
+        # فحص الإجازة الأسبوعية للسوق الأمريكي (السبت والأحد)
+        if weekday == 5 or weekday == 6:
             return "🔴 السوق مقفل (إجازة أسبوعية)"
             
         start_pre = datetime.strptime("04:00:00", "%H:%M:%S").time()
