@@ -7,15 +7,13 @@ from datetime import datetime
 import pytz
 
 # ==========================================
-# 1. قاموس البحث الذكي (تحويل الأسماء المباشرة إلى رموز بورصة)
+# 1. قاموس البحث الذكي عن الأسهم (تحويل الأسماء لرموز)
 # ==========================================
 COMPANY_DICTIONARY = {
-    # السوق السعودي 🇸🇦
     "الراجحي": "1120.SR", "مصرف الراجحي": "1120.SR",
     "أرامكو": "2222.SR", "أرامكو السعودية": "2222.SR",
     "الأهلي": "1180.SR", "البنك الأهلي": "1180.SR",
     "سابك": "2010.SR", "الاتصالات السعودية": "7010.SR", "stc": "7010.SR",
-    # السوق الأمريكي 🇺🇸
     "تسلا": "TSLA", "tesla": "TSLA",
     "أبل": "AAPL", "apple": "AAPL",
     "مايكروسوفت": "MSFT", "microsoft": "MSFT",
@@ -36,16 +34,14 @@ def resolve_ticker(user_input, market_type):
 # 2. دالة فحص وتحديد حالة وقت السوق اللحظية
 # ==========================================
 def get_market_status(market_type):
-    """تحديد ما إذا كان السوق مفتوحاً، مغلقاً، قبل الافتتاح أو بعده بناءً على التوقيت المحلي"""
     now_utc = datetime.now(pytz.utc)
     
     if market_type == "السوق السعودي (تداول) 🇸🇦":
         tz_sa = pytz.timezone('Asia/Riyadh')
         now_local = now_utc.astimezone(tz_sa)
         current_time = now_local.time()
-        weekday = now_local.weekday()  # 0=الإثنين، 4=الجمعة، 5=السبت، 6=الأحد
+        weekday = now_local.weekday()  # 0=الإثنين, 4=الجمعة, 5=السبت, 6=الأحد
         
-        # فحص الإجازة الأسبوعية للسوق السعودي (الجمعة والسبت)
         if weekday == 4 or weekday == 5: 
             return "🔴 السوق مقفل (إجازة أسبوعية)"
             
@@ -55,20 +51,18 @@ def get_market_status(market_type):
         
         if current_time < start_pre:
             return "🟡 السوق مغلق (قبل فترة ما قبل الافتتاح)"
-        elif start_pre <= current_time < start_market:
+        if start_pre <= current_time < start_market:
             return "🟠 فترة ما قبل الافتتاح (Pre-Market)"
-        elif start_market <= current_time < end_market:
+        if start_market <= current_time < end_market:
             return "🟢 السوق مفتوح وجاري التداول اللحظي"
-        else:
-            return "🔴 السوق مغلق (بعد إغلاق الفترة الرسمية)"
+        return "🔴 Market Closed | السوق مغلق"
             
     else:  # السوق الأمريكي
         tz_us = pytz.timezone('US/Eastern')
         now_local = now_utc.astimezone(tz_us)
         current_time = now_local.time()
-        weekday = now_local.weekday()  # 5=السبت، 6=الأحد
+        weekday = now_local.weekday()
         
-        # فحص الإجازة الأسبوعية للسوق الأمريكي (السبت والأحد)
         if weekday == 5 or weekday == 6:
             return "🔴 السوق مقفل (إجازة أسبوعية)"
             
@@ -79,20 +73,18 @@ def get_market_status(market_type):
         
         if current_time < start_pre:
             return "🟡 السوق مغلق (قبل فترة ما قبل الافتتاح)"
-        elif start_pre <= current_time < start_market:
+        if start_pre <= current_time < start_market:
             return "🟠 فترة ما قبل الافتتاح الأمريكي (Pre-Market)"
-        elif start_market <= current_time < end_market:
+        if start_market <= current_time < end_market:
             return "🟢 السوق الأمريكي مفتوح حالياً"
-        elif end_market <= current_time < end_post:
+        if end_market <= current_time < end_post:
             return "🔵 فترة ما بعد الإغلاق الرسمي (After-Hours)"
-        else:
-            return "🔴 السوق مغلق بالكامل"
+        return "🔴 Market Closed | السوق مغلق بالكامل"
 
 # ==========================================
 # 3. مصفوفة حساب المستهدفات الفنية المضاربية اللحظية
 # ==========================================
 def calculate_advanced_targets(current_price, high, low):
-    """توليد المستويات الفنية والمضاربية الدقيقة حركياً بناء على مستويات الدعم والمقاومة اللحظية"""
     range_movement = (high - low) if (high - low) > 0 else (current_price * 0.02)
     
     optimal_entry = current_price - (range_movement * 0.2)
@@ -108,7 +100,7 @@ def calculate_advanced_targets(current_price, high, low):
     }
 
 # ==========================================
-# 4. بناء واجهة مستخدم Streamlit الرئيسية المحدثة
+# 4. بناء واجهة مستخدم Streamlit الرئيسية
 # ==========================================
 def main():
     st.set_page_config(page_title="Stock Radar Pro - رادار الأسهم الاحترافي", layout="wide")
@@ -131,7 +123,6 @@ def main():
         with st.spinner(f"جاري معالجة البيانات الفنية للرمز {ticker_resolved}..."):
             try:
                 ticker_obj = yf.Ticker(ticker_resolved)
-                
                 period_map = {"5m": "5d", "15m": "5d", "1h": "1mo", "1d": "6mo", "1wk": "2y"}
                 hist = ticker_obj.history(interval=timeframe, period=period_map[timeframe])
                 
@@ -152,7 +143,6 @@ def main():
                 dir_color = "green" if price_change >= 0 else "red"
                 
                 market_status_text = get_market_status(market_choice)
-                
                 levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
                 
                 # === العرض المرئي للبيانات والحجم ===
@@ -195,3 +185,10 @@ def main():
                     elif price_change < -1.5:
                         st.error("🚨 السهم يتعرض لضغط بيعي هابط وتصحيح حركي. ينصح بالالتزام التام بنقاط وقف الخسارة لعدم الوقوع في تعليقة سعرية حادة.")
                     else:
+                        st.warning("⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة.")
+                
+                st.markdown("---")
+                
+                # === رسم شارت الشموع اليابانية التفاعلي للمؤشرات الفنية (Plotly Chart) ===
+                st.subheader(f"📈 شارت التحليل الفني التفاعلي اللحظي لفريم ({timeframe})")
+                fig = go.Figure(data=[go.Candlestick(
