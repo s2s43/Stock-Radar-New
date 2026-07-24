@@ -43,8 +43,9 @@ def get_market_status(market_type):
         tz_sa = pytz.timezone('Asia/Riyadh')
         now_local = now_utc.astimezone(tz_sa)
         current_time = now_local.time()
-        weekday = now_local.weekday()  # 0=الأحد, 4=الخميس, 5=الجمعة, 6=السبت
+        weekday = now_local.weekday()  # 0=الإثنين, 4=الجمعة, 5=السبت, 6=الأحد
         
+        # الجمعة (4) والسبت (5) إجازة أسبوعية في البورصة السعودية
         if weekday in: 
             return "🔴 السوق مقفل (إجازة أسبوعية)"
             
@@ -67,6 +68,7 @@ def get_market_status(market_type):
         current_time = now_local.time()
         weekday = now_local.weekday()  # 5=السبت, 6=الأحد
         
+        # السبت (5) والأحد (6) إجازة أسبوعية في الأسواق الأمريكية
         if weekday in:
             return "🔴 السوق مقفل (إجازة أسبوعية)"
             
@@ -193,4 +195,3 @@ def main():
                     elif price_change < -1.5:
                         st.error("🚨 السهم يتعرض لضغط بيعي هابط وتصحيح حركي. ينصح بالالتزام التام بنقاط وقف الخسارة لعدم الوقوع في تعليقة سعرية حادة.")
                     else:
-                        st.warning("⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة.")
