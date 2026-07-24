@@ -173,17 +173,18 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("---")
         
-        # جلب الأخبار والتحليل الذكي للمشاعر بأسلوب مسطح خطي وخال تماماً من الشروط (مقاوم لأخطاء المحاذاة)
+        # جلب الأخبار والتحليل الذكي للمشاعر بأسلوب مسطحة بالكامل وبدون try معزول مسبب للأخطاء
         st.subheader("📰 آخر أخبار السهم والتحليل الذكي للخبر")
-        try:
-            news_list = ticker_obj.news
-            if news_list:
-                for news in news_list[:3]:
-                    n_title = news.get('title', '')
-                    n_link = news.get('link', '')
-                    n_polarity = TextBlob(n_title).sentiment.polarity
+        news_list = ticker_obj.news
+        if news_list:
+            for news in news_list[:3]:
+                n_title = news.get('title', '')
+                n_link = news.get('link', '')
+                n_polarity = TextBlob(n_title).sentiment.polarity
+                
+                sentiment_labels = ["🔴 سلبي (محفز للهبوط)", "🟡 محايد (استقرار سعري)", "🟢 إيجابي (محفز للصعود)"]
+                idx = int(n_polarity > 0.1) - int(n_polarity < -0.1) + 1
                     
-                    # مصفوفة خطية بحتة خالية من الـ if المتداخلة لمنع الخطأ نهائياً
-                    sentiment_labels = ["🔴 سلبي (محفز للهبوط)", "🟡 محايد (استقرار سعري)", "🟢 إيجابي (محفز للصعود)"]
-                    idx = int(n_polarity > 0.1) - int(n_polarity < -0.1) + 1
-                        
+                st.markdown(f"🔹 **[{n_title}]({n_link})**")
+                st.info(f"التحليل الذكي لمشاعر فحوى الخبر: {sentiment_labels[idx]}")
+        else:
