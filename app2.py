@@ -87,7 +87,6 @@ def main():
         dir_color = "green" if price_change >= 0 else "red"
         levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
         
-        # جلب الاسم الرسمي للشركة لتجنب أخطاء الإدخال
         try:
             info_data = ticker_obj.info
             company_long_name = info_data.get("longName", ticker_resolved)
@@ -98,7 +97,6 @@ def main():
         st.subheader("🔔 مركز الإشعارات والتنبيهات المضاربية اللحظية")
         alert_triggered = False
         
-        # 1. تنبيه اختراق السيولة (إذا كان حجم سيولة آخر شمعة أعلى من المتوسط بنسبة كبيرة)
         last_vol = hist['Volume'].iloc[-1]
         liquidity_value = last_vol * current_price
         avg_vol = hist['Volume'].mean()
@@ -107,7 +105,6 @@ def main():
             st.error(f"⚡ **تنبيه سيولة غير طبيعية:** تم رصد تدفق سيولة ضخمة مفاجئة على السهم تفوق المعدل اليومي بـ 150%! حجم سيولة الشمعة الحالية: {liquidity_value:,.0f} {currency}")
             alert_triggered = True
             
-        # 2. تنبيه الاقتراب من مناطق الدخول والمستهدفات
         if abs(current_price - levels['entry']) / levels['entry'] <= 0.01:
             st.success(f"🎯 **تنبيه قناص الرادار:** السهم يتداول الآن مباشرة عند منطقة الدخول والمضاربة اللحظية المثالية ({levels['entry']:.2f} {currency})")
             alert_triggered = True
@@ -182,7 +179,12 @@ def main():
                     link = news.get('link', '')
                     analysis = TextBlob(title)
                     polarity = analysis.sentiment.polarity
-                    sentiment = "🟢 إيجابي" if polarity > 0.1 else ("🔴 سلبي" if polarity < -0.1 else "🟡 محايد")
+                    if polarity > 0.1:
+                        sentiment = "🟢 إيجابي (محفز للصعود)"
+                    elif polarity < -0.1:
+                        sentiment = "🔴 سلبي (محفز للهبوط)"
+                    else:
+                        sentiment = "🟡 محايد (استقرار سعري)"
                     st.markdown(f"🔹 **[{title}]({link})**")
                     st.info(f"التحليل الذكي لمشاعر فحوى الخبر: {sentiment}")
             else:
