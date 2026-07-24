@@ -34,6 +34,7 @@ def resolve_ticker(user_input, market_type):
 # 2. دالة فحص وتحديد حالة وقت السوق اللحظية
 # ==========================================
 def get_market_status(market_type):
+    """تحديد ما إذا كان السوق مفتوحاً، مغلقاً، قبل الافتتاح أو بعده بناءً على التوقيت المحلي"""
     now_utc = datetime.now(pytz.utc)
     
     if market_type == "السوق السعودي (تداول) 🇸🇦":
@@ -190,5 +191,3 @@ def main():
                 st.markdown("---")
                 
                 # === رسم شارت الشموع اليابانية التفاعلي للمؤشرات الفنية (Plotly Chart) ===
-                st.subheader(f"📈 شارت التحليل الفني التفاعلي اللحظي لفريم ({timeframe})")
-                
