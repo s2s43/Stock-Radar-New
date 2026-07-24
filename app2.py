@@ -4,9 +4,7 @@ import pandas as pd
 from textblob import TextBlob
 import plotly.graph_objects as go
 
-# ==========================================
-# 1. قاموس البحث الذكي عن الأسهم (تحويل الأسماء لرموز)
-# ==========================================
+# قاموس البحث الذكي عن الأسهم (تحويل الأسماء لرموز)
 COMPANY_DICTIONARY = {
     "الراجحي": "1120.SR", "مصرف الراجحي": "1120.SR",
     "أرامكو": "2222.SR", "أرامكو السعودية": "2222.SR", "ارامكو": "2222.SR",
@@ -28,9 +26,6 @@ def resolve_ticker(user_input, market_type):
             return f"{clean_input}.SR"
     return user_input.upper().strip()
 
-# ==========================================
-# 2. مصفوفة حساب المستهدفات الفنية المضاربية اللحظية
-# ==========================================
 def calculate_advanced_targets(current_price, high, low):
     range_movement = (high - low) if (high - low) > 0 else (current_price * 0.02)
     return {
@@ -42,9 +37,6 @@ def calculate_advanced_targets(current_price, high, low):
         "strict_sl": current_price - (range_movement * 1.2)
     }
 
-# ==========================================
-# 3. بناء واجهة مستخدم Streamlit الرئيسية
-# ==========================================
 def main():
     st.set_page_config(page_title="Stock Radar Pro - رادار الأسهم الاحترافي", layout="wide")
     st.title("📊 رادار الأسهم الاحترافي الذكي (Stock Radar Pro)")
@@ -173,18 +165,23 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("---")
         
-        # جلب الأخبار والتحليل الذكي للمشاعر بأسلوب مسطحة بالكامل وبدون try معزول مسبب للأخطاء
+        # عرض آخر الأخبار بصيغة خطية مسطحة تماماً (Flat structure)
         st.subheader("📰 آخر أخبار السهم والتحليل الذكي للخبر")
         news_list = ticker_obj.news
-        if news_list:
-            for news in news_list[:3]:
-                n_title = news.get('title', '')
-                n_link = news.get('link', '')
-                n_polarity = TextBlob(n_title).sentiment.polarity
+        if not news_list:
+            st.info("لا توجد أخبار جوهرية منشورة حديثاً للرمز المحدد عبر مزود البيانات العالمي.")
+        
+        # في حال وجود أخبار، يتم استعراضها بشكل تسلسلي آمن 100% ضد الأخطاء
+        for news in news_list[:3]:
+            n_title = news.get('title', '')
+            n_link = news.get('link', '')
+            n_polarity = TextBlob(n_title).sentiment.polarity
+            
+            sentiment_labels = ["🔴 سلبي (محفز للهبوط)", "🟡 محايد (استقرار سعري)", "🟢 إيجابي (محفز للصعود)"]
+            idx = int(n_polarity > 0.1) - int(n_polarity < -0.1) + 1
                 
-                sentiment_labels = ["🔴 سلبي (محفز للهبوط)", "🟡 محايد (استقرار سعري)", "🟢 إيجابي (محفز للصعود)"]
-                idx = int(n_polarity > 0.1) - int(n_polarity < -0.1) + 1
-                    
-                st.markdown(f"🔹 **[{n_title}]({n_link})**")
-                st.info(f"التحليل الذكي لمشاعر فحوى الخبر: {sentiment_labels[idx]}")
-        else:
+            st.markdown(f"🔹 **[{n_title}]({n_link})**")
+            st.info(f"التحليل الذكي لمشاعر فحوى الخبر: {sentiment_labels[idx]}")
+
+if __name__ == "__main__":
+    main()
