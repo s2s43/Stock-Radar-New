@@ -11,7 +11,7 @@ import pytz
 # ==========================================
 COMPANY_DICTIONARY = {
     "الراجحي": "1120.SR", "مصرف الراجحي": "1120.SR",
-    "أرامكو": "2222.SR", "أرامكو السعودية": "2222.SR",
+    "أرامكو": "2222.SR", "أرامكو السعودية": "2222.SR", "ارامكو": "2222.SR",
     "الأهلي": "1180.SR", "البنك الأهلي": "1180.SR",
     "سابك": "2010.SR", "الاتصالات السعودية": "7010.SR", "stc": "7010.SR",
     "تسلا": "TSLA", "tesla": "TSLA",
@@ -54,7 +54,7 @@ def main():
     
     st.sidebar.header("⚙️ إعدادات الرادار والمراقبة")
     market_choice = st.sidebar.selectbox("اختر السوق المستهدف:", ["السوق الأمريكي 🇺🇸", "السوق السعودي (تداول) 🇸🇦"])
-    user_search = st.sidebar.text_input("أدخل اسم الشركة (مثال: تسلا، أرامكو) أو رمزها المباشر:", value="AAPL")
+    user_search = st.sidebar.text_input("أدخل اسم الشركة أو رمزها المباشر:", value="2222")
     timeframe = st.sidebar.selectbox("اختر الفريم الزمني للتحليل (Timeframe):", ["5m", "15m", "1h", "1d", "1wk"])
     trigger_radar = st.sidebar.button("تشغيل رادار الفحص اللحظي والمضاربي", use_container_width=True)
 
@@ -87,18 +87,57 @@ def main():
         dir_color = "green" if price_change >= 0 else "red"
         levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
         
-        # عرض لوحة فحص المؤشرات الرئيسية
+        # جلب الاسم الرسمي للشركة لتجنب أخطاء الإدخال
+        try:
+            info_data = ticker_obj.info
+            company_long_name = info_data.get("longName", ticker_resolved)
+        except:
+            company_long_name = ticker_resolved
+
+        # --- 🚨 قسم التنبيهات اللحظية المدمجة في نفس البيانات ---
+        st.subheader("🔔 مركز الإشعارات والتنبيهات المضاربية اللحظية")
+        alert_triggered = False
+        
+        # 1. تنبيه اختراق السيولة (إذا كان حجم سيولة آخر شمعة أعلى من المتوسط بنسبة كبيرة)
+        last_vol = hist['Volume'].iloc[-1]
+        liquidity_value = last_vol * current_price
+        avg_vol = hist['Volume'].mean()
+        
+        if last_vol > (avg_vol * 1.5):
+            st.error(f"⚡ **تنبيه سيولة غير طبيعية:** تم رصد تدفق سيولة ضخمة مفاجئة على السهم تفوق المعدل اليومي بـ 150%! حجم سيولة الشمعة الحالية: {liquidity_value:,.0f} {currency}")
+            alert_triggered = True
+            
+        # 2. تنبيه الاقتراب من مناطق الدخول والمستهدفات
+        if abs(current_price - levels['entry']) / levels['entry'] <= 0.01:
+            st.success(f"🎯 **تنبيه قناص الرادار:** السهم يتداول الآن مباشرة عند منطقة الدخول والمضاربة اللحظية المثالية ({levels['entry']:.2f} {currency})")
+            alert_triggered = True
+        elif current_price <= levels['sl']:
+            st.warning(f"🚨 **تنبيه كسر فني:** السهم يتداول حالياً تحت مستوى وقف الخسارة المحدد ({levels['sl']:.2f} {currency}). ينصح بالحذر.")
+            alert_triggered = True
+            
+        if not alert_triggered:
+            st.info("✅ جميع المؤشرات السعرية وحجم السيولة تتداول ضمن النطاقات الطبيعية المستقرة حالياً.")
+            
+        st.markdown("---")
+
+        # --- عرض لوحة فحص المؤشرات الرئيسية مع الاسم الرسمي ---
         st.subheader("📌 لوحة فحص المؤشرات اللحظية الأساسية")
+        st.markdown(f"### 🏢 السهم النشط حالياً: <span style='color:#1E88E5;'>{company_long_name} ({ticker_resolved})</span>", unsafe_allow_html=True)
+        
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
             st.metric(label=f"السعر الحالي ({currency})", value=f"{current_price:.2f}", delta=f"{price_change:.2f}%")
         with col_m2:
             st.markdown(f"**الاتجاه الفني الحالي:**\n\n<span style='color:{dir_color}; font-size:18px; font-weight:bold;'>{stock_direction}</span>", unsafe_allow_html=True)
         with col_m3:
-            last_vol = hist['Volume'].iloc[-1]
-            liquidity_value = last_vol * current_price
-            st.metric("حجم السيولة المتداولة (آخر شمعة)", f"{liquidity_value:,.0f} {currency}")
+            st.metric("حجم سيولة الشمعة الأخيرة", f"{liquidity_value:,.0f} {currency}")
         
+        try:
+            float_shares = info_data.get("floatShares", info_data.get("sharesOutstanding", 0))
+            st.caption(f"الأسهم المتاحة للتداول (Float Shares): {float_shares:,.0f}" if float_shares else "الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
+        except:
+            st.caption("الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
+            
         st.markdown("---")
         
         # عرض مناطق الدخول ونصائح التداول
@@ -147,9 +186,3 @@ def main():
                     st.markdown(f"🔹 **[{title}]({link})**")
                     st.info(f"التحليل الذكي لمشاعر فحوى الخبر: {sentiment}")
             else:
-                st.info("لا توجد أخبار جوهرية منشورة حديثاً للرمز المحدد عبر مزود البيانات العالمي.")
-        except:
-            st.info("يتعذر جلب الأخبار اللحظية حالياً من خادم المزود.")
-
-if __name__ == "__main__":
-    main()
