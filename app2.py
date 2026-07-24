@@ -191,4 +191,4 @@ def main():
                 
                 # === رسم شارت الشموع اليابانية التفاعلي للمؤشرات الفنية (Plotly Chart) ===
                 st.subheader(f"📈 شارت التحليل الفني التفاعلي اللحظي لفريم ({timeframe})")
-                fig = go.Figure(data=[go.Candlestick(
+                
