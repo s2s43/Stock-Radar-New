@@ -101,7 +101,7 @@ def main():
             sa_tz = pytz.timezone('Asia/Riyadh')
             sa_now = now_utc.astimezone(sa_tz)
             sa_time = sa_now.time()
-            sa_day = sa_now.weekday()  # 4=الجمعة، 5=السبت بالإجازة الأسبوعية للبورصة
+            sa_day = sa_now.weekday()  # 4=الجمعة، 5=السبت
             
             if sa_day == 4 or sa_day == 5:
                 market_status_text = "🔴 السوق مقفل (إجازة أسبوعية - الجمعة والسبت)"
@@ -114,11 +114,10 @@ def main():
             else:
                 market_status_text = "🔴 السوق مغلق (بعد إغلاق الفترة الرسمية)"
         else:
-            # حساب توقيت البورصة الأمريكية (توقيت نيويورك الشرقي)
             us_tz = pytz.timezone('US/Eastern')
             us_now = now_utc.astimezone(us_tz)
             us_time = us_now.time()
-            us_day = us_now.weekday()  # 5=السبت، 6=الأحد بالإجازة الأمريكية
+            us_day = us_now.weekday()  # 5=السبت، 6=الأحد
             
             if us_day == 5 or us_day == 6:
                 market_status_text = "🔴 السوق مقفل (إجازة أسبوعية - السبت والأحد)"
@@ -187,3 +186,4 @@ def main():
             st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
             st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
             st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
+            st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
