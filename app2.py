@@ -114,71 +114,83 @@ def main():
         ticker_resolved = resolve_ticker(user_search, market_choice)
         currency = "ر.س" if market_choice == "السوق السعودي (تداول) 🇸🇦" else "$"
         
+        hist = pd.DataFrame()
+        ticker_obj = None
+        
+        # 1. جلب البيانات الأساسية من ياهو فاينانس بحماية مستقلة
         with st.spinner(f"جاري معالجة البيانات الفنية للرمز {ticker_resolved}..."):
             try:
                 ticker_obj = yf.Ticker(ticker_resolved)
                 period_map = {"5m": "5d", "15m": "5d", "1h": "1mo", "1d": "6mo", "1wk": "2y"}
                 hist = ticker_obj.history(interval=timeframe, period=period_map[timeframe])
-                
-                if hist.empty:
-                    st.error("⚠️ لم يتم العثور على بيانات نشطة لهذا الرمز. يرجى التأكد من كتابة الاسم أو الرمز بشكل صحيح.")
-                    return
-                
-                hist = hist.dropna(subset=['Close'])
-                current_price = hist['Close'].iloc[-1]
-                prev_price = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
-                price_change = ((current_price - prev_price) / prev_price) * 100
-                
-                stock_direction = "📈 صاعد مستقر" if price_change >= 0 else "📉 هابط تصحيحي"
-                dir_color = "green" if price_change >= 0 else "red"
-                market_status_text = get_market_status(market_choice)
-                levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
-                
-                st.subheader("📌 لوحة فحص المؤشرات اللحظية الأساسية")
-                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                with col_m1:
-                    st.metric(label=f"السعر الحالي ({currency})", value=f"{current_price:.2f}", delta=f"{price_change:.2f}%")
-                with col_m2:
-                    st.markdown(f"**حالة توقيت السوق الحالية:**\n\n`{market_status_text}`")
-                with col_m3:
-                    st.markdown(f"**الاتجاه الفني الحالي:**\n\n<span style='color:{dir_color}; font-size:18px; font-weight:bold;'>{stock_direction}</span>", unsafe_allow_html=True)
-                with col_m4:
-                    last_vol = hist['Volume'].iloc[-1]
-                    liquidity_value = last_vol * current_price
-                    st.metric("حجم السيولة المتداولة (آخر شمعة)", f"{liquidity_value:,.0f} {currency}")
-                
-                info_data = ticker_obj.info
-                float_shares = info_data.get("floatShares", info_data.get("sharesOutstanding", 0))
-                st.caption(f"الأسهم المتاحة للتداول (Float Shares): {float_shares:,.0f}" if float_shares else "الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
-                st.markdown("---")
-                
-                col_t1, col_t2 = st.columns(2)
-                with col_t1:
-                    st.subheader("🎯 المستهدفات الفنية والمستويات المضاربية اللحظية")
-                    st.success(f"🟢 منطقة أفضل سعر للدخول والمضاربة اللحظية: **{levels['entry']:.2f} {currency}**")
-                    st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
-                    st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
-                    st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
-                    st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
-                    st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
-                with col_t2:
-                    st.subheader("💡 نصائح الرادار الفنية الموجهة")
-                    if price_change > 1.5:
-                        st.success("🔥 السهم تحت تأثير زخم شرائي قوي وسيولة متدفقة للإيجابية. الدخول الآمن يكون عبر اقتناص التهدئة اللحظية قرب منطقة الدخول المحددة للهدف الأول.")
-                    elif price_change < -1.5:
-                        st.error("🚨 السهم يتعرض لضغط بيعي هابط وتصحيح حركي. ينصح بالالتزام التام بنقاط وقف الخسارة لعدم الوقوع في تعليقة سعرية حادة.")
-                    else:
-                        st.warning("⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة.")
-                st.markdown("---")
-                
-                st.subheader(f"📈 شارت التحليل الفني التفاعلي اللحظي لفريم ({timeframe})")
-                fig = go.Figure(data=[go.Candlestick(
-                    x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name="الشموع اليابانية"
-                )])
-                fig.add_hline(y=levels['entry'], line_dash="dash", line_color="green", annotation_text="منطقة الدخول")
-                fig.add_hline(y=levels['t1'], line_dash="dash", line_color="blue", annotation_text="الهدف 1")
-                fig.add_hline(y=levels['sl'], line_dash="dash", line_color="red", annotation_text="وقف الخسارة")
-                fig.update_layout(template="plotly_dark", xaxis_rangeslider_visible=False, height=520)
-                st.plotly_chart(fig, use_container_width=True)
-                st.markdown("---")
-                
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء الاتصال بمزود البيانات: {str(e)}")
+                return
+
+        if hist.empty:
+            st.error("⚠️ لم يتم العثور على بيانات نشطة لهذا الرمز. يرجى التأكد من كتابة الاسم أو الرمز بشكل صحيح.")
+            return
+            
+        # 2. معالجة وتجهيز الحسابات الفنية
+        hist = hist.dropna(subset=['Close'])
+        current_price = hist['Close'].iloc[-1]
+        prev_price = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+        price_change = ((current_price - prev_price) / prev_price) * 100
+        
+        stock_direction = "📈 صاعد مستقر" if price_change >= 0 else "📉 هابط تصحيحي"
+        dir_color = "green" if price_change >= 0 else "red"
+        market_status_text = get_market_status(market_choice)
+        levels = calculate_advanced_targets(current_price, hist['High'].max(), hist['Low'].min())
+        
+        # 3. عرض لوحة فحص المؤشرات الرئيسية
+        st.subheader("📌 لوحة فحص المؤشرات اللحظية الأساسية")
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            st.metric(label=f"السعر الحالي ({currency})", value=f"{current_price:.2f}", delta=f"{price_change:.2f}%")
+        with col_m2:
+            st.markdown(f"**حالة توقيت السوق الحالية:**\n\n`{market_status_text}`")
+        with col_m3:
+            st.markdown(f"**الاتجاه الفني الحالي:**\n\n<span style='color:{dir_color}; font-size:18px; font-weight:bold;'>{stock_direction}</span>", unsafe_allow_html=True)
+        with col_m4:
+            last_vol = hist['Volume'].iloc[-1]
+            liquidity_value = last_vol * current_price
+            st.metric("حجم السيولة المتداولة (آخر شمعة)", f"{liquidity_value:,.0f} {currency}")
+        
+        try:
+            info_data = ticker_obj.info
+            float_shares = info_data.get("floatShares", info_data.get("sharesOutstanding", 0))
+            st.caption(f"الأسهم المتاحة للتداول (Float Shares): {float_shares:,.0f}" if float_shares else "الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
+        except:
+            st.caption("الأسهم المتاحة للتداول: يتم تحديثها دورياً من البورصة")
+            
+        st.markdown("---")
+        
+        # 4. عرض مناطق الدخول ونصائح التداول
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            st.subheader("🎯 المستهدفات الفنية والمستويات المضاربية اللحظية")
+            st.success(f"🟢 منطقة أفضل سعر للدخول والمضاربة اللحظية: **{levels['entry']:.2f} {currency}**")
+            st.info(f"🚀 الهدف المضاربي الأول: **{levels['t1']:.2f} {currency}**")
+            st.info(f"🚀 الهدف الثاني (متوسط النطاق): **{levels['t2']:.2f} {currency}**")
+            st.info(f"🚀 الهدف الثالث (مستهدف رئيسي): **{levels['t3']:.2f} {currency}**")
+            st.warning(f"⚠️ مستوى وقف الخسارة (لحماية رأس المال): **{levels['sl']:.2f} {currency}**")
+            st.error(f"🚨 وقف الخسارة الصارم النهائي: **{levels['strict_sl']:.2f} {currency}**")
+        with col_t2:
+            st.subheader("💡 نصائح الرادار الفنية الموجهة")
+            if price_change > 1.5:
+                st.success("🔥 السهم تحت تأثير زخم شرائي قوي وسيولة متدفقة للإيجابية. الدخول الآمن يكون عبر اقتناص التهدئة اللحظية قرب منطقة الدخول المحددة للهدف الأول.")
+            elif price_change < -1.5:
+                st.error("🚨 السهم يتعرض لضغط بيعي هابط وتصحيح حركي. ينصح بالالتزام التام بنقاط وقف الخسارة لعدم الوقوع في تعليقة سعرية حادة.")
+            else:
+                st.warning("⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة.")
+        st.markdown("---")
+        
+        # 5. بناء شارت الشموع اليابانية التفاعلي بشكل مستقل
+        st.subheader(f"📈 شارت التحليل الفني التفاعلي اللحظي لفريم ({timeframe})")
+        fig = go.Figure(data=[go.Candlestick(
+            x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name="الشموع اليابانية"
+        )])
+        fig.add_hline(y=levels['entry'], line_dash="dash", line_color="green", annotation_text="منطقة الدخول")
+        fig.add_hline(y=levels['t1'], line_dash="dash", line_color="blue", annotation_text="الهدف 1")
+        fig.add_hline(y=levels['sl'], line_dash="dash", line_color="red", annotation_text="وقف الخسارة")
+        fig.update_layout(template="plotly_dark", xaxis_rangeslider_visible=False, height=520)
