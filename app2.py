@@ -94,7 +94,7 @@ def main():
             exchange_status = "🔄 دورة السوق العادية"
 
         # --- 🚨 قسم التنبيهات اللحظية المدمجة ---
-        st.subheader("🔔 centre الإشعارات والتنببهات المضاربية اللحظية")
+        st.subheader("🔔 مركز الإشعارات والتنبيهات المضاربية اللحظية")
         alert_triggered = False
         
         last_vol = hist['Volume'].iloc[-1]
@@ -150,7 +150,7 @@ def main():
         
         st.markdown("---")
         
-        # صياغة النصيحة الذكية بخطوة معمارية مسطحة
+        # صياغة النصيحة الذكية بخطوة معمارية مسطحة خالية تماماً من الشروط
         st.subheader("💡 نصائح الرادار الفنية الموجهة")
         radar_tip = "⚖️ السهم يتداول في نطاق تجميعي ومسار عرضي متزن حالياً. مناسب جداً للمضاربات السريعة واقتناص الفروقات السعرية البسيطة."
         if price_change > 1.5:
@@ -173,7 +173,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("---")
         
-        # جلب الأخبار والتحليل الذكي للمشاعر (صياغة مسطحة وخالية 100% من الشروط ومحاذية آلياً)
+        # جلب الأخبار والتحليل الذكي للمشاعر بأسلوب مسطح خطي وخال تماماً من الشروط (مقاوم لأخطاء المحاذاة)
         st.subheader("📰 آخر أخبار السهم والتحليل الذكي للخبر")
         try:
             news_list = ticker_obj.news
@@ -181,12 +181,9 @@ def main():
                 for news in news_list[:3]:
                     n_title = news.get('title', '')
                     n_link = news.get('link', '')
-                    n_analysis = TextBlob(n_title)
-                    n_polarity = n_analysis.sentiment.polarity
+                    n_polarity = TextBlob(n_title).sentiment.polarity
                     
-                    # حساب المشاعر بأسلوب مصفوفة نصية مسطحة لمنع أخطاء التداخل
+                    # مصفوفة خطية بحتة خالية من الـ if المتداخلة لمنع الخطأ نهائياً
                     sentiment_labels = ["🔴 سلبي (محفز للهبوط)", "🟡 محايد (استقرار سعري)", "🟢 إيجابي (محفز للصعود)"]
-                    idx = 1
-                    if n_polarity > 0.1:
-                        idx = 2
-                    if n_polarity < -0.1:
+                    idx = int(n_polarity > 0.1) - int(n_polarity < -0.1) + 1
+                        
